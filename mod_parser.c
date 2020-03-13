@@ -43,15 +43,18 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_parser_load);
  */
 SWITCH_MODULE_DEFINITION(mod_parser, mod_parser_load, mod_parser_shutdown, NULL);
 
-/*
+
 SWITCH_STANDARD_API(get_json_value_function)
 {
 	const char * value = NULL;
 	int tagc = 0;
-	char *mydata = NULL, *tagv[1024] = { 0 } ;
 	int i = 0;
+	int last = 0;
+	long tmp = 0;
+	char *mydata = NULL, *strtmp = NULL, *tagv[1024] = { 0 } ;
 	const char *err = NULL;
-	switch_xml_t xml_root = NULL, xml = NULL, obj = NULL;
+	int done = 0;
+	cJSON *json = NULL, *item = NULL;
 
 	if (!cmd) {
 		err = "Usage: get_json_value <path>";
@@ -62,17 +65,123 @@ SWITCH_STANDARD_API(get_json_value_function)
 	switch_assert(mydata);
 	tagc = switch_separate_string(mydata, ' ', tagv, (sizeof(tagv) / sizeof(tagv[0])));
 
-	if (tagc == 0) {
+	if (tagc < 2) {
 		err = "Usage: get_json_value <path>";
+		goto end;
+	}
+	last = tagc - 1;
+
+	if ((json = cJSON_Parse(tagv[0])) == NULL) {
+		err = "Error parsing JSON string.";
+		goto end;
+	}
+
+	if (json->type == cJSON_Array || json->type == cJSON_Object)
+		item = json->child;
+	else
+		item = json;
+
+	for(i=1; i<tagc; i++) {
+		while (item) {
+			switch ((item->type)&255) {
+			case cJSON_NULL:
+			case cJSON_False:
+			case cJSON_True:
+			case cJSON_Number:
+			case cJSON_String:
+//				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s of plain type %d %d/%d\n", item->string, item->type, i, last);
+				if (i == last) {
+					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s of plain type %d is last in search path %d/%d\n", item->string, item->type, i, last);
+					if (item->string) {
+						if (!strcmp(item->string, tagv[i])) {
+//							switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s of plain type %d is found %d/%d\n", item->string, item->type, i, last);
+							value = (item->type==cJSON_String)?item->valuestring:cJSON_Print(item);
+							done = 1;
+						}
+					}
+				}
+			break;
+			case cJSON_Array:
+//				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s of array type %d %d/%d\n", item->string, item->type, i, last);
+				if (i != last) {
+					errno = 0;
+					tmp = strtol(tagv[i+1], &strtmp, 10);
+					if (errno == 0) {
+//						switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s get item %ld(%s) %d/%d\n", item->string, tmp, tagv[i+1], i, last);
+						item = cJSON_GetArrayItem(item, tmp);
+						i++;
+						if (i == last) {
+							switch((item->type)&255) {
+							case cJSON_NULL:
+							case cJSON_False:
+							case cJSON_True:
+							case cJSON_Number:
+							case cJSON_String:
+								value = (item->type==cJSON_String)?item->valuestring:cJSON_Print(item);
+								done = 1;
+							break;
+							case cJSON_Array:
+							case cJSON_Object:
+							continue;
+							}
+						} else {
+							continue;
+						}
+					} else {
+//						switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "JSON value %s is not integer %d/%d\n", tagv[i], i, last);
+						done = 1;
+					}
+				}
+			case cJSON_Object:
+//				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s of object type %d %d/%d\n", item->string, item->type, i, last);
+				if (item->string) {
+					if (!strcmp(item->string, tagv[i])) {
+//						switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "JSON item %s of complex type %d is in search path %d/%d\n", item->string, item->type, i, last);
+						if (i == last) {
+							done = 1;
+						} else {
+							item = item->child;
+							i++;
+							continue;
+						}
+					}
+				} else {
+					if (i != last) {
+						item = item->child;
+						i++;
+						continue;
+					}
+				}
+			break;
+			}
+
+			if (done)
+				break;
+			else
+				item = item->next;
+		}
+
+		if (done)
+		    break;
+	}
+
+	if (value == NULL) {
+		err = "Nothing found.";
 		goto end;
 	}
 
 end:
+	if (err) {
+		stream->write_function(stream, "-ERR %s\n", err);
+	} else {
+		stream->write_function(stream, "%s", value);
+	}
 
+	cJSON_Delete(json);
 	free(mydata);
+
 	return SWITCH_STATUS_SUCCESS;
 }
-*/
 
 SWITCH_STANDARD_API(get_xml_value_function)
 {
@@ -197,7 +306,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_parser_load)
 
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "Module mod_parser loading...\n");
 
-//	SWITCH_ADD_API(api_interface, "get_json_value", "Get value from JSON object, encoded to string", get_json_value_function, "<JSON> <path_to_value>");
+	SWITCH_ADD_API(api_interface, "get_json_value", "Get value from JSON object, encoded to string", get_json_value_function, "<JSON> <path_to_value>");
 	SWITCH_ADD_API(api_interface, "get_xml_value", "Get value from XML document, encoded to string", get_xml_value_function, "<XML> <path_to_value>");
 	SWITCH_ADD_API(api_interface, "get_config_value", "Get value from XML config", get_config_value_function, "<section> <path_to_value>");
 
