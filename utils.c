@@ -37,7 +37,7 @@
     Utility functions BEGIN
 */
 
-SWITCH_DECLARE(const char *) getXMLNode(const char *tag, switch_xml_t xml, switch_xml_t *obj_out)
+const char * getXMLNode(const char *tag, switch_xml_t xml, switch_xml_t *obj_out)
 {
 	int pc = 0;
 	char *mydata = NULL, *pv[1024] = { 0 };
