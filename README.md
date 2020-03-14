@@ -16,11 +16,12 @@ Get value, specified by arguments, from JSON string, specified by first argument
 
 ## Build as a part of FreeSWITCH tree
 
-`git submodule add -b devel -- https://github.com/kvishnivetsky/freeswitch-mod_parser src/mod/applications/mod_parser`
-
-Edit `configure.sh` and add `src/mod/applications/mod_parser/Makefile` in `AC_CONFIG_FILES` section.
-
-Edit `modules.conf` and add `applications/mod_parser`.
++ `git branch devel-mod_parser`
++ `git checkout devel-mod_parser`
++ `git submodule add -- https://github.com/kvishnivetsky/freeswitch-mod_parser.git src/mod/applications/mod_parser`
++ edit your `configure.ac` and add to `AC_CONFIG_FILES` section `src/mod/applications/mod_parser/Makefile`
++ edit your `modules.conf` and add `applications/mod_parser`
++ build FreeSWITCH as usual: `./bootstrap.sh` and so on....
 
 ## Usage examples
 
