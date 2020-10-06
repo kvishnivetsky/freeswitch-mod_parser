@@ -41,3 +41,10 @@ To extract `value` to variable in dialplan use:
 `<action application="curl" data="https://api.test.local/get-some-json"/>`
 
 `<action application="set" data="api_result=${get_json_value('${curl_response_data}' data 1 test3)}"/>`
+
+## Keywords
+
++ FreeSWITCH JSON parser
++ FreeSWITCH XML parser
++ FreeSWITCH dialplan JSON
++ FreeSWITCH dialplan XML
